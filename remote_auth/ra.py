@@ -23,6 +23,7 @@ class RA:
                                                     header=headers,
                                                     on_message=self._on_message,
                                                     on_close=self._on_close)
+        server_discord_con.send(json.dumps({"op": "heartbeat"}))
         server_discord_con.ra_instance = self
         self.server_discord_con = server_discord_con
         Thread(target=server_discord_con.run_forever,
@@ -47,9 +48,11 @@ class RA:
                                                     on_message=ra_instance._on_message,
                                                     on_close=ra_instance._on_close)
 
+        server_discord_con.send(json.dumps({"op": "heartbeat"}))
         server_discord_con.ra_instance = ra_instance
         ra_instance.server_discord_con = server_discord_con
-        Thread(target=server_discord_con.run_forever).start()
+        Thread(target=server_discord_con.run_forever,
+               args=(None, None, 41.250, None, json.dumps({"op": "heartbeat"}))).start()
 
         asyncio.run(ra_instance.connection_closed(ra_instance))
 
@@ -119,7 +122,6 @@ class RA:
 
         elif message['op'] == 'pending_login':
             token = message['ticket']
-            print(token)
             asyncio.run(ra_instance.callback_on_token(ra_instance, token))
             ra_instance.server_discord_con.close()
 
@@ -132,8 +134,10 @@ class RA:
                                                         on_message=ra_instance._on_message,
                                                         on_close=ra_instance._on_close)
 
+            server_discord_con.send(json.dumps({"op": "heartbeat"}))
             server_discord_con.ra_instance = ra_instance
             ra_instance.server_discord_con = server_discord_con
-            Thread(target=server_discord_con.run_forever).start()
+            Thread(target=server_discord_con.run_forever,
+                   args=(None, None, 41.250, None, json.dumps({"op": "heartbeat"}))).start()
 
             asyncio.run(ra_instance.client_refused_login(ra_instance))
