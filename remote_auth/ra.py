@@ -8,8 +8,11 @@ from threading import Thread
 import websocket
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from loguru import logger
 
 from .config import REMOTE_AUTH_URL, headers
+
+logger.remove()
 
 
 class RA:
@@ -23,7 +26,6 @@ class RA:
                                                     header=headers,
                                                     on_message=self._on_message,
                                                     on_close=self._on_close)
-        server_discord_con.send(json.dumps({"op": "heartbeat"}))
         server_discord_con.ra_instance = self
         self.server_discord_con = server_discord_con
         Thread(target=server_discord_con.run_forever,
@@ -38,8 +40,6 @@ class RA:
 
     @staticmethod
     def _on_close(ws):
-        print('WS DISCONNECTED, CREATING NEW')
-
         ra_instance = ws.ra_instance
         ra_instance._qr_code = None
         ra_instance.server_discord_con.close()
@@ -47,8 +47,6 @@ class RA:
                                                     header=headers,
                                                     on_message=ra_instance._on_message,
                                                     on_close=ra_instance._on_close)
-
-        server_discord_con.send(json.dumps({"op": "heartbeat"}))
         server_discord_con.ra_instance = ra_instance
         ra_instance.server_discord_con = server_discord_con
         Thread(target=server_discord_con.run_forever,
@@ -60,7 +58,6 @@ class RA:
     def _on_message(ws, message):
         ra_instance = ws.ra_instance
         message = json.loads(message)
-        print(time.time(), message)
 
         if message['op'] == 'hello':
             rsa_key_pair = rsa.generate_private_key(
@@ -102,7 +99,6 @@ class RA:
         elif message['op'] == 'pending_remote_init':
             fingerprint = message['fingerprint']
             ra_instance._qr_code = 'https://discord.com/ra/' + fingerprint
-            print('new qr', ra_instance._qr_code)
 
         elif message['op'] == 'pending_ticket':
             encrypted_user_payload = base64.b64decode(message['encrypted_user_payload'])
@@ -115,7 +111,6 @@ class RA:
                 )
             ).decode('utf-8')
             user_id, user_discriminator, user_avatar, user_name = decrypted_user_payload.split(':')
-            print(f'{user_name}#{user_discriminator} ({user_id}) is logging in')
             asyncio.run(
                 ra_instance.callback_on_login(ra_instance, user_id, user_discriminator, user_avatar,
                                               user_name))
@@ -126,15 +121,12 @@ class RA:
             ra_instance.server_discord_con.close()
 
         elif message['op'] == 'cancel':
-            print('USER CANCELLED LOGIN, CREATING NEW QR CODE')
             ra_instance._qr_code = None
             ra_instance.server_discord_con.close()
             server_discord_con = websocket.WebSocketApp(REMOTE_AUTH_URL,
                                                         header=headers,
                                                         on_message=ra_instance._on_message,
                                                         on_close=ra_instance._on_close)
-
-            server_discord_con.send(json.dumps({"op": "heartbeat"}))
             server_discord_con.ra_instance = ra_instance
             ra_instance.server_discord_con = server_discord_con
             Thread(target=server_discord_con.run_forever,

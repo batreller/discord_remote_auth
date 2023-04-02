@@ -4,3 +4,4 @@ websocket-client~=0.59.0
 cryptography~=39.0.0
 gunicorn
 websockets
+loguru
